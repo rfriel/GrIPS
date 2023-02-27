@@ -23,7 +23,7 @@ para_tokenizer = PegasusTokenizer.from_pretrained(para_model_name)
 para_model = PegasusForConditionalGeneration.from_pretrained(para_model_name).to(
     torch_device).eval()
 
-
+level = 'phrase'
 
 def detokenize(tokens):
     return TreebankWordDetokenizer().detokenize(tokens)
@@ -200,7 +200,6 @@ def grips(
         num_compose = 1,
         num_candidates = 5,
         patience = 2,
-        level='phrase',
 ):
     edit_operations = list(edit_operations_)
     use_add = 'add' in edit_operations
