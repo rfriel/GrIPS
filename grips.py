@@ -11,17 +11,16 @@ from sklearn.metrics import balanced_accuracy_score
 from transformers import PegasusForConditionalGeneration, PegasusTokenizer
 from scipy.stats import entropy
 import json
+import torch
 nltk.download('punkt')
 
 
-num_steps = 10
-level = 'phrase'
-parser = Parser.load('crf-con-en')
-edit_operations =('del', 'swap', 'sub', 'add')
-num_compose = 1
-num_candidates = 5
-simulated_anneal=False
-patience=2
+para_model_name = 'tuner007/pegasus_paraphrase'
+torch_device = 'cuda' if torch.cuda.is_available() else 'cpu'
+para_tokenizer = PegasusTokenizer.from_pretrained(para_model_name)
+para_model = PegasusForConditionalGeneration.from_pretrained(para_model_name).to(
+    torch_device).eval()
+
 
 
 def detokenize(tokens):
