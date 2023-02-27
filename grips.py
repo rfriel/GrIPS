@@ -198,6 +198,7 @@ def grips(
         num_compose = 1,
         num_candidates = 5,
         patience = 2,
+        level='phrase',
 ):
     edit_operations = list(edit_operations_)
     use_add = 'add' in edit_operations
