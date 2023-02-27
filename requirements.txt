@@ -5,3 +5,4 @@ scikit_learn
 scipy
 supar==1.1.2
 tqdm
+sentencepiece
