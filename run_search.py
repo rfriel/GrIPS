@@ -14,6 +14,7 @@ import json
 
 parser = argparse.ArgumentParser(description='Take arguments from commandline')
 parser.add_argument('--mode', default="Instruction Only", help='Type mode of instructions/prompts')
+parser.add_argument('--init')
 parser.add_argument('--num-shots', default=2, type=int, help='Type number of examples in the prompt if applicable')
 parser.add_argument('--batch-size', default=4, type=int, help='Type in the batch-size')
 parser.add_argument('--task-idx', default=1, type=int, help='Type in the index of the task based on the array in the code')
@@ -35,14 +36,16 @@ parser.add_argument('--key-id', default=0, type=int, help='Use if you have acces
 parser.add_argument('--edits', nargs="+", default=['del', 'swap', 'sub', 'add'], help='space of edit ops to be considered')
 
 
+
 args = parser.parse_args()
+
+instruction = args.init
 
 if args.key_id:
     import nat_inst_gpt3
     nat_inst_gpt3.key = args.key_id
 
 meta_path = os.path.join(args.meta_dir, args.meta_name)
-meta_file = open(meta_path, 'w+')
 batch_size = args.batch_size
 num_shots = args.num_shots
 mode = args.mode
@@ -56,19 +59,24 @@ assert args.task_idx >= 0 and args.task_idx < len(classification_task_ids), "Inv
 chosen_task = classification_task_ids[args.task_idx] 
 chosen_task_name = file_map['task' + chosen_task]
 print("Running Experiment for: ", chosen_task_name)
-file_contents = json.load(open("{}/{}".format(data_base_path, chosen_task_name)))
-label_list = [file_contents["Instances"][i]["output"][0] for i in range(len(file_contents["Instances"])) ]
+# file_contents = json.load(open("{}/{}".format(data_base_path, chosen_task_name)))
+with open("data.json") as f:
+    data = json.load(f)
+
+
+
+# label_list = [file_contents["Instances"][i]["output"][0] for i in range(len(file_contents["Instances"])) ]
 num_samples = 100 #default test set of size 100
 num_train_samples = args.num_train
 
 np.random.seed(train_seed)
 torch.manual_seed(train_seed)
-_, task_labels , _ = construct_instruction_prompt(mode='No Instructions', task_name=chosen_task_name, num_shots=num_shots, num_test_instances=num_samples, seed=seed)
+# _, task_labels , _ = construct_instruction_prompt(mode='No Instructions', task_name=chosen_task_name, num_shots=num_shots, num_test_instances=num_samples, seed=seed)
 task_labels = list(set(task_labels))
 task_labels.sort()
 print(task_labels)
 
-instruction = file_contents['Definition']
+# instruction = file_contents['Definition']
 instruction = instruction.replace('\n' + 'Things to avoid: -', '')
 instruction = instruction.replace('\n' + 'Emphasis & Caution: -', '')
 if args.agnostic:
@@ -277,14 +285,10 @@ operations_tracker = []
 base_candidate = detokenize(word_tokenize(instruction))
 assert word_tokenize(base_candidate) == word_tokenize(instruction)
 original_candidate = base_candidate
-meta_file.write("Base Candidate:\t "+ original_candidate + '\n')
 base_score = score(base_candidate)
-meta_file.write("Base Score:\t "+ str(base_score) + '\n')
-meta_file.write("\n")
 delete_tracker = []
 patience_counter = 1
 for i in range(num_steps):
-    meta_file.write("Running step:\t " + str(i) + '\n')
     deleted = {}
     added = {}
     phrase_lookup = get_phrase_lookup(base_candidate)
@@ -308,15 +312,12 @@ for i in range(num_steps):
     candidates = []
     for edit in edits:
         if isinstance(edit, str): 
-            meta_file.write("Performing edit:\t "+ edit + '\n')
             candidate, indices = perform_edit(edit, base_candidate, phrase_lookup, delete_tracker)
-            meta_file.write("Generated candidate:\t "+ candidate + '\n')
             candidates.append(candidate)
             if edit  == 'del': deleted[candidate] = [phrase_lookup[indices[0]]]
             if edit == 'add': 
                 if len(indices): added[candidate] = indices
         else:
-            meta_file.write(("Performing edit:\t "+ ' '.join(edit))+ '\n')
             old_candidate = base_candidate
             composed_deletes = []
             composed_adds = []
@@ -327,7 +328,6 @@ for i in range(num_steps):
                 if op == 'add': 
                     if len(indices): composed_adds.append(indices[0])
                 old_candidate = new_candidate
-            meta_file.write("Generated candidate:\t "+ new_candidate+ '\n')
             candidates.append(new_candidate)
             if 'del' in edit: deleted[new_candidate] = composed_deletes
             if 'add' in edit and len(composed_adds) > 0: added[new_candidate] = composed_adds
@@ -338,9 +338,7 @@ for i in range(num_steps):
     for c, candidate in enumerate(candidates):
         scores.append(score(candidate))
         print(scores[-1])
-        meta_file.write("Score for Candidate "+ str(c)+ ":\t "+ str(scores[-1])+ '\n')
     
-    meta_file.write("\n")
     best_idx = np.argmax(scores)
     best_score = scores[best_idx]
     if best_score > base_score: 
@@ -348,13 +346,6 @@ for i in range(num_steps):
         base_candidate = candidates[best_idx]
         base_score = best_score
         operations_tracker.append(edits[best_idx])
-        meta_file.write("New Candidate Found"+ '\n')
-        meta_file.write("New Candidate Index:\t "+ str(best_idx)+ '\n')
-        meta_file.write("New Candidate:\t "+ base_candidate+ '\n')
-        meta_file.write("New Candidate Score:\t "+ str(base_score)+ '\n')
-        try: meta_file.write("New Candidate Edit:\t "+ edits[best_idx]+ '\n')
-        except: meta_file.write("New Candidate Edit:\t "+ ' '.join(edits[best_idx])+ '\n')
-        meta_file.write("\n")
         print('New Base Candidate: ', base_candidate)
         if base_candidate in added.keys():
             print('Notice! Prev tracker: ', delete_tracker)
@@ -378,7 +369,6 @@ for i in range(num_steps):
             if np.random.binomial(1, prob): 
                 print('\n')
                 print('Update from simulated anneal')
-                meta_file.write('Update from simulated anneal \n')
                 base_candidate = candidates[idx]
                 base_score = chosen_score
                 print('New Base Candidate: '+ base_candidate)
@@ -394,7 +384,6 @@ for i in range(num_steps):
             else:
                 if patience_counter > args.patience:
                     print('Ran out of patience')
-                    meta_file.write('Ran out of patience \n')
                     break
                 else: continue        
             
@@ -402,13 +391,10 @@ for i in range(num_steps):
         else:
             if patience_counter > args.patience:
                 print('Ran out of patience')
-                meta_file.write('Ran out of patience \n')
                 break
             else: continue      
             
-meta_file.write('\n')
 print('\nTesting .... ')
-meta_file.write('Testing .... \n')
 if args.print_orig:
     print('Task:\t', chosen_task_name)
     print('Original Instruction:\t', original_candidate)
@@ -417,14 +403,10 @@ if args.print_orig:
 
 if base_candidate == original_candidate: 
     print('No viable candidate found!')
-    meta_file.write('No viable candidate found!\n')
     exit()
 searched_score = score(base_candidate, 'test', write=args.write_preds)
 print('Accuracy after search:\t', str(searched_score))
 print('Instruction after search:\t', base_candidate)
 print('Edit Operations:\t', operations_tracker)
-meta_file.write('Instruction after search:\t'+ base_candidate+ '\n')
-meta_file.write('Accuracy after search:\t'+ str(searched_score)+ '\n')
-meta_file.write('Edit Operations:\t'+ ' '.join([str(o) for o in operations_tracker]) + '\n')
 
 
