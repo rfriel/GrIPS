@@ -202,6 +202,9 @@ def grips(
             phrase = np.random.choice(delete_tracker, 1)[0]
             return add_phrase(base, phrase, after), [phrase]
 
+    # def rob_prompt(mode, task_name, num_shots, num_test_instances, seed, split, modified):
+    #     return prompt_list, answer_list, index_list
+
 
     def custom_instruction_prompt(mode=mode, task_name=chosen_task_name, num_shots=num_shots,
                                   num_test_instances=num_samples, seed=seed, null_word=None,
@@ -351,8 +354,6 @@ def grips(
             base_candidate = candidates[best_idx]
             base_score = best_score
             operations_tracker.append(edits[best_idx])
-            try:
-            except:
             print('New Base Candidate: ', base_candidate)
             if base_candidate in added.keys():
                 print('Notice! Prev tracker: ', delete_tracker)
@@ -422,3 +423,125 @@ def grips(
     print('Instruction after search:\t', base_candidate)
     print('Edit Operations:\t', operations_tracker)
 
+
+
+def foo():
+    operations_tracker = []
+    base_candidate = detokenize(word_tokenize(instruction))
+    assert word_tokenize(base_candidate) == word_tokenize(instruction)
+    original_candidate = base_candidate
+    base_score = score(base_candidate)
+    delete_tracker = []
+    patience_counter = 1
+    for i in range(num_steps):
+        deleted = {}
+        added = {}
+        phrase_lookup = get_phrase_lookup(base_candidate)
+        if base_candidate == original_candidate:
+            for p in phrase_lookup.values(): print(p)
+        if use_add:
+            if len(delete_tracker):
+                if 'add' not in edit_operations: edit_operations.append('add')
+            else:
+                if 'add' in edit_operations: edit_operations.remove('add')
+        if num_compose == 1:
+            edits = np.random.choice(edit_operations, num_candidates)
+        else:
+            edits = []
+            for n in range(num_candidates):
+                edits.append(np.random.choice(edit_operations, num_compose))
+        print(edits)
+
+        # generate candidates
+        candidates = []
+        for edit in edits:
+            if isinstance(edit, str):
+                candidate, indices = perform_edit(edit, base_candidate, phrase_lookup, delete_tracker)
+                candidates.append(candidate)
+                if edit == 'del': deleted[candidate] = [phrase_lookup[indices[0]]]
+                if edit == 'add':
+                    if len(indices): added[candidate] = indices
+            else:
+                old_candidate = base_candidate
+                composed_deletes = []
+                composed_adds = []
+                for op in edit:
+                    phrase_lookup = get_phrase_lookup(old_candidate)
+                    new_candidate, indices = perform_edit(op, old_candidate, phrase_lookup,
+                                                          delete_tracker)
+                    if op == 'del':  composed_deletes.append(phrase_lookup[indices[0]])
+                    if op == 'add':
+                        if len(indices): composed_adds.append(indices[0])
+                    old_candidate = new_candidate
+                candidates.append(new_candidate)
+                if 'del' in edit: deleted[new_candidate] = composed_deletes
+                if 'add' in edit and len(composed_adds) > 0: added[new_candidate] = composed_adds
+
+        print(base_score)
+        scores = []
+        for c, candidate in enumerate(candidates):
+            scores.append(score(candidate))
+            print(scores[-1])
+
+        best_idx = np.argmax(scores)
+        best_score = scores[best_idx]
+        if best_score > base_score:
+            patience_counter = 1
+            base_candidate = candidates[best_idx]
+            base_score = best_score
+            operations_tracker.append(edits[best_idx])
+            try:
+            except:
+            print('New Base Candidate: ', base_candidate)
+            if base_candidate in added.keys():
+                print('Notice! Prev tracker: ', delete_tracker)
+                for chunk in added[base_candidate]:
+                    try:
+                        delete_tracker.remove(chunk)
+                    except:
+                        pass
+                print('Notice! New tracker: ', delete_tracker)
+            if base_candidate in deleted.keys():
+                delete_tracker.extend(deleted[base_candidate])
+            base_candidate = detokenize(word_tokenize(base_candidate))
+
+        else:
+            patience_counter += 1
+
+            if simulated_anneal:
+                K = 5
+                T = T_max * np.exp(-i / K)
+                idx = np.argmax(scores)
+                chosen_score = scores[idx]
+                prob = np.exp((chosen_score - base_score) / T)
+                if np.random.binomial(1, prob):
+                    print('\n')
+                    print('Update from simulated anneal')
+                    base_candidate = candidates[idx]
+                    base_score = chosen_score
+                    print('New Base Candidate: ' + base_candidate)
+                    if base_candidate in added.keys():
+                        print('Notice! Prev tracker: ', delete_tracker)
+                        for chunk in added[base_candidate]:
+                            try:
+                                delete_tracker.remove(chunk)
+                            except:
+                                pass
+                        print('Notice! New tracker: ', delete_tracker)
+                    if base_candidate in deleted.keys():
+                        delete_tracker.extend(deleted[base_candidate])
+                    base_candidate = detokenize(word_tokenize(base_candidate))
+                else:
+                    if patience_counter > patience:
+                        print('Ran out of patience')
+                        break
+                    else:
+                        continue
+
+
+            else:
+                if patience_counter > patience:
+                    print('Ran out of patience')
+                    break
+                else:
+                    continue
