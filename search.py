@@ -6,11 +6,13 @@ import random
 from nltk.tokenize.treebank import TreebankWordDetokenizer
 import numpy as np
 import argparse
-from nat_inst_gpt3 import *
+# from nat_inst_gpt3 import *
 from sklearn.metrics import balanced_accuracy_score
 from transformers import PegasusForConditionalGeneration, PegasusTokenizer
 from scipy.stats import entropy
 import json
+nltk.download('punkt')
+
 
 
 PROMPT_FORMAT = """{prompt}

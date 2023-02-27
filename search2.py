@@ -11,6 +11,7 @@ from sklearn.metrics import balanced_accuracy_score
 from transformers import PegasusForConditionalGeneration, PegasusTokenizer
 from scipy.stats import entropy
 import json
+nltk.download('punkt')
 
 
 num_steps = 10
@@ -189,34 +190,24 @@ def get_phrase_lookup(base_candidate):
     return phrase_lookup
 
 
-import random
-
-def score(candidate, **kwargs):
-    return random.random()
-
-
 def grips(
         instruction,
-        mode,
-        examples, task_labels,
-        batch_size, num_shots,
-        num_compose, num_candidates, num_steps,
-        num_samples = 100,
-        train_seed=423523,
-        edits=('del', 'swap', 'sub', 'add'),
-        meta_name='meta',
-        meta_dir='.',
-        level='phrase',
-        simulated_anneal=False,
-        patience=2
+        score_fn,
+        num_steps=10,
+        edit_operations_ = ('del', 'swap', 'sub', 'add'),
+        simulated_anneal = False,
+        num_compose = 1,
+        num_candidates = 5,
+        patience = 2,
 ):
     edit_operations = list(edit_operations_)
+    use_add = 'add' in edit_operations
 
     operations_tracker = []
     base_candidate = detokenize(word_tokenize(instruction))
     assert word_tokenize(base_candidate) == word_tokenize(instruction)
     original_candidate = base_candidate
-    base_score = score_likelihood([base_candidate])[0]
+    base_score = score_fn([base_candidate])[0]
     delete_tracker = []
     patience_counter = 1
     for i in range(num_steps):
@@ -269,8 +260,7 @@ def grips(
 
         print(f'candidates {candidates}')
         print(base_score)
-        scores = []
-        scores = score_likelihood(candidates)
+        scores = score_fn(candidates)
         # print(scores)
         # for c, candidate in enumerate(candidates):
         #     scores.append(score(candidate))
@@ -301,6 +291,7 @@ def grips(
 
             if simulated_anneal:
                 K = 5
+                T_max = 10
                 T = T_max * np.exp(-i / K)
                 idx = np.argmax(scores)
                 chosen_score = scores[idx]
