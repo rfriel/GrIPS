@@ -210,6 +210,8 @@ def grips(
     assert word_tokenize(base_candidate) == word_tokenize(instruction)
     original_candidate = base_candidate
     base_score = score_fn([base_candidate])[0]
+    orig_score = base_score
+    print(f"base candidate score: {base_score}")
     delete_tracker = []
     patience_counter = 1
     for i in range(num_steps):
@@ -263,7 +265,8 @@ def grips(
         print(f'candidates {candidates}')
         print(base_score)
         scores = score_fn(candidates)
-        # print(scores)
+        print(scores)
+        print(f'beaten base candidate: {base_score > orig_score}')
         # for c, candidate in enumerate(candidates):
         #     scores.append(score(candidate))
         #     print(scores[-1])
@@ -329,3 +332,5 @@ def grips(
                     break
                 else:
                     continue
+
+    return base_candidate
