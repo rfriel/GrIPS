@@ -75,7 +75,7 @@ def get_phrases(instruction):  # one possible way of obtaining disjoint phrases
     phrases = []
     for sentence in sent_tokenize(instruction):
         print(f"parse {sentence}")
-        parsed_tree = parser.predict(word_tokenize(sentence), verbose=False).sentences[0].trees[0]
+        parsed_tree = parser.predict(word_tokenize(sentence), verbose=True).sentences[0].trees[0]
         print(f"parsed_tree {parsed_tree}")
         leaves = collect_leaves(parsed_tree)
         phrases.extend(leaves)
