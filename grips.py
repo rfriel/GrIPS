@@ -214,8 +214,10 @@ def grips(
     delete_tracker = []
     patience_counter = 1
     for i in range(num_steps):
+        print(f"step {i}")
         deleted = {}
         added = {}
+        print("phrase_lookup")
         phrase_lookup = get_phrase_lookup(base_candidate)
         if base_candidate == original_candidate:
             for p in phrase_lookup.values(): print(p)
@@ -235,6 +237,7 @@ def grips(
         # generate candidates
         candidates = []
         for edit in edits:
+            print(f"edit {edit}")
             if isinstance(edit, str):
                 # print(f'perform_edit {edit}')
                 candidate, indices = perform_edit(edit, base_candidate, phrase_lookup, delete_tracker)
