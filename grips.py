@@ -59,6 +59,7 @@ def check_child(tree):
 def collect_leaves(parsed_tree):
     leaves = []
     for tree in parsed_tree:
+        print(f"tree {tree}")
         if type(parsed_tree) != nltk.tree.Tree: continue
         if tree.label() == '_':
             leaves.append(detokenize(tree.leaves()))
@@ -73,11 +74,15 @@ def collect_leaves(parsed_tree):
 def get_phrases(instruction):  # one possible way of obtaining disjoint phrases
     phrases = []
     for sentence in sent_tokenize(instruction):
+        print(f"parse {sentence}")
         parsed_tree = parser.predict(word_tokenize(sentence), verbose=False).sentences[0].trees[0]
+        print(f"parsed_tree {parsed_tree}")
         leaves = collect_leaves(parsed_tree)
         phrases.extend(leaves)
+    print(f"phrases: {phrases}")
     phrases = [detokenize(word_tokenize(phrase)) for phrase in phrases if
                 phrase not in string.punctuation or phrase == '']
+    print(f"phrases: {phrases}")
     return phrases
 
 
